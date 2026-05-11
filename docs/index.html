@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法師專用查詢後台</title>
+    <style>
+      body { font-family: 'Arial', sans-serif; padding: 20px; background-color: #ecf0f1; color: #2c3e50; margin: 0;}
+      .container { max-width: 900px; margin: 0 auto; padding: 25px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+      h2 { text-align: center; color: #2980b9; border-bottom: 2px solid #3498db; padding-bottom: 10px;}
+      
+      #auth-section { text-align: center; margin-top: 50px; }
+      input[type="password"] { width: 80%; max-width: 300px; padding: 12px; font-size: 16px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 5px; }
+      button { background-color: #2980b9; color: white; border: none; padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+      button:hover { background-color: #34495e; }
+
+      .controls { display: flex; flex-wrap: wrap; gap: 15px; margin: 20px 0; background: #f8f9fa; padding: 15px; border-radius: 8px; align-items: center; justify-content: space-between;}
+      .tab-group button { background-color: #bdc3c7; color: #333; padding: 10px 20px; margin-right: 5px;}
+      .tab-group button.active { background-color: #e67e22; color: white; }
+      select { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
+
+      table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 15px; }
+      th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+      th { background-color: #34495e; color: white; position: sticky; top: 0;}
+      tr:nth-child(even) { background-color: #f2f2f2; }
+      tr:hover { background-color: #fdf2e9; }
+      .rank-1 { color: #f1c40f; font-weight: bold; font-size: 18px; }
+      .rank-2 { color: #bdc3c7; font-weight: bold; font-size: 18px; }
+      .rank-3 { color: #d35400; font-weight: bold; font-size: 18px; }
+
+      #dashboard-section { display: none; }
+      .loading { text-align: center; padding: 40px; color: #7f8c8d; font-size: 18px; font-weight: bold; }
+      
+      /* 錯題區塊的專屬樣式 */
+      .wrong-q-section { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #bdc3c7; }
+      .wrong-table th { background-color: #c0392b; }
+      .wrong-table td { text-align: left; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+
+    <!-- 密碼鎖區塊 -->
+    <div id="auth-section" class="container">
+      <h2>法師專用查詢後台</h2>
+      <p>請輸入查閱密碼以驗證身分</p>
+      <input type="password" id="adminPwd" placeholder="請輸入密碼">
+      <br>
+      <button onclick="checkPwd()">進入系統</button>
+      <p id="pwd-msg" style="color:red; margin-top:10px;"></p>
+    </div>
+
+    <!-- 數據儀表板區塊 -->
+    <div id="dashboard-section" class="container">
+      <h2>義工刷題狀況總覽</h2>
+      
+      <div class="controls">
+        <div class="tab-group">
+          <button id="btn-edit" class="active" onclick="switchSubject('文編')">文編檢定</button>
+          <button id="btn-photo" onclick="switchSubject('攝影')">攝影檢定</button>
+        </div>
+        <div>
+          <label style="font-weight:bold; margin-right:10px;">排序條件：</label>
+          <select id="sort-select" onchange="renderTable()">
+            <option value="total">🏆 總積分最高排行</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 積分排名表格 -->
+      <div id="table-container">
+        <div class="loading">資料同步讀取中，請稍候...</div>
+      </div>
+      
+      <!-- 錯題統計區塊 -->
+      <div id="wrong-stats-container" class="wrong-q-section"></div>
+    </div>
+
+    <script>
+      // ==============================================================
+      // ⚠️ 請將下方引號內的網址，換成您的 Apps Script 正式發布網址
+      // ==============================================================
+      const API_URL = "https://script.google.com/macros/s/AKfycbzR0nxw4mkxT1JkA4w2nQBsRJ0qIVISkz_pu7_hws0ULiksWvyiB_ivIls2dIRQmQm5/exec"; 
+
+      const ADMIN_PASSWORD = "888"; 
+      let allData = {};
+      let currentSubject = '文編';
+
+      // 核心 API 呼叫工具
+      async function callApi(action, data = {}) {
+        try {
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: action, ...data })
+          });
+          const result = await response.json();
+          if (result.status === 'success') return result.data;
+          else throw new Error(result.message);
+        } catch (error) {
+          console.error("API 錯誤:", error);
+          throw error;
+        }
+      }
+
+      function checkPwd() {
+        if(document.getElementById('adminPwd').value === ADMIN_PASSWORD) {
+          document.getElementById('auth-section').style.display = 'none';
+          document.getElementById('dashboard-section').style.display = 'block';
+          loadData();
+        } else {
+          document.getElementById('pwd-msg').innerText = "密碼錯誤，請重新輸入";
+        }
+      }
+
+      async function loadData() {
+        try {
+          const data = await callApi('getAdminDashboardData');
+          allData = data;
+          updateWeekDropdown();
+          renderTable();
+        } catch(e) {
+          document.getElementById('table-container').innerHTML = "<div class='loading' style='color:#e74c3c;'>資料讀取失敗，請檢查網路連線或重新整理。</div>";
+        }
+      }
+
+      function switchSubject(subject) {
+        currentSubject = subject;
+        document.getElementById('btn-edit').className = (subject === '文編') ? 'active' : '';
+        document.getElementById('btn-photo').className = (subject === '攝影') ? 'active' : '';
+        updateWeekDropdown();
+        renderTable();
+      }
+
+      function updateWeekDropdown() {
+        let select = document.getElementById('sort-select');
+        select.innerHTML = '<option value="total">🏆 總積分最高排行</option>';
+        
+        if(!allData[currentSubject] || !allData[currentSubject].users) return;
+        
+        let availableWeeks = new Set();
+        allData[currentSubject].users.forEach(user => {
+           Object.keys(user.weeks).forEach(w => availableWeeks.add(parseInt(w)));
+        });
+
+        let sortedWeeks = Array.from(availableWeeks).sort((a,b) => b - a);
+        sortedWeeks.forEach(w => {
+           select.innerHTML += `<option value="${w}">📅 第 ${w} 週積分排行</option>`;
+        });
+      }
+
+      function renderTable() {
+        let container = document.getElementById('table-container');
+        let wrongContainer = document.getElementById('wrong-stats-container');
+        let sortMode = document.getElementById('sort-select').value;
+        let list = allData[currentSubject] ? [...allData[currentSubject].users] : [];
+
+        if(list.length === 0) {
+          container.innerHTML = "<div class='loading'>目前名單中尚無任何具備此權限的義工。</div>";
+          wrongContainer.innerHTML = "";
+          return;
+        }
+
+        // --- 處理主表格排序 ---
+        if (sortMode === 'total') {
+          list.sort((a, b) => b.totalScore - a.totalScore);
+        } else {
+          let targetWeek = sortMode;
+          list.sort((a, b) => {
+            let scoreA = a.weeks[targetWeek] ? a.weeks[targetWeek].score : 0;
+            let scoreB = b.weeks[targetWeek] ? b.weeks[targetWeek].score : 0;
+            return scoreB - scoreA;
+          });
+        }
+
+        let html = "<table>";
+        if(sortMode === 'total') {
+          html += "<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🏆 累積總積分</th></tr>";
+        } else {
+          html += `<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🎯 第 ${sortMode} 週積分</th><th>該週最高輪次</th><th>累積總積分</th></tr>`;
+        }
+
+        list.forEach((user, index) => {
+          let rank = index + 1;
+          let rankIcon = rank;
+          if(rank === 1) rankIcon = "<span class='rank-1'>🥇 1</span>";
+          if(rank === 2) rankIcon = "<span class='rank-2'>🥈 2</span>";
+          if(rank === 3) rankIcon = "<span class='rank-3'>🥉 3</span>";
+
+          let dName = user.dharmaName ? user.dharmaName : "-"; 
+
+          if(sortMode === 'total') {
+            let scoreColor = user.totalScore > 0 ? "#e67e22" : "#95a5a6";
+            html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='color:${scoreColor}; font-weight:bold;'>${user.totalScore} 分</td></tr>`;
+          } else {
+            let wData = user.weeks[sortMode] || {score: 0, maxRound: 0};
+            let roundText = wData.maxRound > 0 ? `第 ${wData.maxRound} 輪` : "-";
+            let scoreColor = wData.score > 0 ? "#27ae60" : "#95a5a6";
+            html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='color:${scoreColor}; font-weight:bold;'>${wData.score} 分</td><td>${roundText}</td><td>${user.totalScore} 分</td></tr>`;
+          }
+        });
+        html += "</table>";
+        container.innerHTML = html;
+
+        // --- 處理錯題顯示區塊 ---
+        if (sortMode === 'total') {
+          wrongContainer.innerHTML = "<div style='text-align:center; padding:20px; color:#7f8c8d; font-size:16px;'>💡 請在上方選單選擇「特定週次」，即可查看該週的錯題統計。</div>";
+        } else {
+          let stats = allData[currentSubject].wrongStats[sortMode];
+          if (!stats || stats.length === 0) {
+            wrongContainer.innerHTML = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:10px;'>📊 第 " + sortMode + " 週 - 錯題統計</h3><p style='text-align:center; color:#27ae60; padding:15px; font-weight:bold; font-size:16px;'>太棒了！本週沒有任何錯題紀錄。</p>";
+          } else {
+            let wHtml = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:15px;'>🚨 第 " + sortMode + " 週 - 易錯題排行榜 <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>(依錯題人數排序)</span></h3>";
+            wHtml += "<table class='wrong-table'><tr><th style='width:80%;'>題目內容</th><th style='width:20%;'>答錯人數</th></tr>";
+            stats.forEach(st => {
+              wHtml += `<tr><td>${st.qText}</td><td style='text-align:center; color:#e74c3c; font-weight:bold;'>${st.count} 人</td></tr>`;
+            });
+            wHtml += "</table>";
+            wrongContainer.innerHTML = wHtml;
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
