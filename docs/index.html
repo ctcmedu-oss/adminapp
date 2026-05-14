@@ -176,7 +176,7 @@
         if(sortMode === 'total') {
           html += "<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🏆 累積總積分</th></tr>";
         } else {
-          html += `<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🎯 第 ${sortMode} 週積分</th><th>該週最高輪次</th><th>累積總積分</th></tr>`;
+          html += `<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🎯 第 ${sortMode} 週積分</th><th>該週最高次數</th><th>累積總積分</th></tr>`;
         }
 
         list.forEach((user, index) => {
@@ -193,7 +193,7 @@
             html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='color:${scoreColor}; font-weight:bold;'>${user.totalScore} 分</td></tr>`;
           } else {
             let wData = user.weeks[sortMode] || {score: 0, maxRound: 0};
-            let roundText = wData.maxRound > 0 ? `第 ${wData.maxRound} 輪` : "-";
+            let roundText = wData.maxRound > 0 ? `${wData.maxRound} 次` : "-";
             let scoreColor = wData.score > 0 ? "#27ae60" : "#95a5a6";
             html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='color:${scoreColor}; font-weight:bold;'>${wData.score} 分</td><td>${roundText}</td><td>${user.totalScore} 分</td></tr>`;
           }
