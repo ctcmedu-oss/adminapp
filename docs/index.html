@@ -5,6 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>法師專用查詢後台</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
       body { font-family: 'Arial', sans-serif; padding: 20px; background-color: #ecf0f1; color: #2c3e50; margin: 0;}
       .container { max-width: 900px; margin: 0 auto; padding: 25px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -19,6 +22,10 @@
       .tab-group button { background-color: #bdc3c7; color: #333; padding: 10px 20px; margin-right: 5px;}
       .tab-group button.active { background-color: #e67e22; color: white; }
       select { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
+
+      /* 【新增】匯出按鈕專屬樣式 */
+      .btn-export { background-color: #c0392b; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px;}
+      .btn-export:hover { background-color: #a93226; }
 
       table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 15px; }
       th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
@@ -40,7 +47,6 @@
   </head>
   <body>
 
-    <!-- 密碼鎖區塊 -->
     <div id="auth-section" class="container">
       <h2>法師專用查詢後台</h2>
       <p>請輸入查閱密碼以驗證身分</p>
@@ -50,7 +56,6 @@
       <p id="pwd-msg" style="color:red; margin-top:10px;"></p>
     </div>
 
-    <!-- 數據儀表板區塊 -->
     <div id="dashboard-section" class="container">
       <h2>義工刷題狀況總覽</h2>
       
@@ -64,15 +69,15 @@
           <select id="sort-select" onchange="renderTable()">
             <option value="total">🏆 總積分最高排行</option>
           </select>
+          
+          <button class="btn-export" onclick="exportWrongStats()">🚨 匯出易錯題</button>
         </div>
       </div>
 
-      <!-- 積分排名表格 -->
       <div id="table-container">
         <div class="loading">資料同步讀取中，請稍候...</div>
       </div>
       
-      <!-- 錯題統計區塊 -->
       <div id="wrong-stats-container" class="wrong-q-section"></div>
     </div>
 
@@ -86,14 +91,12 @@
       let allData = {};
       let currentSubject = '文編';
 
-      // 【新增】網頁載入時自動檢查 Session 狀態
       window.onload = function() {
         if (sessionStorage.getItem('isLoggedIn') === 'true') {
           showDashboard();
         }
       };
 
-      // 核心 API 呼叫工具
       async function callApi(action, data = {}) {
         try {
           const response = await fetch(API_URL, {
@@ -111,18 +114,17 @@
 
       function checkPwd() {
         if(document.getElementById('adminPwd').value === ADMIN_PASSWORD) {
-          sessionStorage.setItem('isLoggedIn', 'true'); // 【新增】登入成功，記錄狀態到 Session 中
+          sessionStorage.setItem('isLoggedIn', 'true'); 
           showDashboard();
         } else {
           document.getElementById('pwd-msg').innerText = "密碼錯誤，請重新輸入";
         }
       }
 
-      // 【新增】抽離顯示後台與讀取最新資料的步驟
       function showDashboard() {
         document.getElementById('auth-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
-        loadData(); // 每次進入或重新整理，都會即時呼叫最新刷題狀況
+        loadData(); 
       }
 
       async function loadData() {
@@ -173,7 +175,6 @@
           return;
         }
 
-        // --- 處理主表格排序 ---
         if (sortMode === 'total') {
           list.sort((a, b) => b.totalScore - a.totalScore);
         } else {
@@ -187,7 +188,6 @@
 
         let html = "<table>";
         if(sortMode === 'total') {
-          // 【修改】在總積分排行標頭，多補一欄「刷題總次數」
           html += "<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>📝 刷題總次數</th><th>🏆 累積總積分</th></tr>";
         } else {
           html += `<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🎯 第 ${sortMode} 週積分</th><th>該週最高次數</th><th>累積總積分</th></tr>`;
@@ -204,12 +204,8 @@
 
           if(sortMode === 'total') {
             let scoreColor = user.totalScore > 0 ? "#e67e22" : "#95a5a6";
-            
-            // 【修改】計算或取得該名義工的刷題總次數
             let totalRounds = user.totalCount || Object.values(user.weeks).reduce((sum, w) => sum + (w.maxRound || 0), 0);
             let roundsText = totalRounds > 0 ? `${totalRounds} 次` : "-";
-
-            // 【修改】表格內容帶入刷題總次數欄位
             html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='font-weight:bold; color:#34495e;'>${roundsText}</td><td style='color:${scoreColor}; font-weight:bold;'>${user.totalScore} 分</td></tr>`;
           } else {
             let wData = user.weeks[sortMode] || {score: 0, maxRound: 0};
@@ -221,7 +217,6 @@
         html += "</table>";
         container.innerHTML = html;
 
-        // --- 處理錯題顯示區塊 ---
         if (sortMode === 'total') {
           wrongContainer.innerHTML = "<div style='text-align:center; padding:20px; color:#7f8c8d; font-size:16px;'>💡 請在上方選單選擇「特定週次」，即可查看該週的錯題統計。</div>";
         } else {
@@ -238,6 +233,59 @@
             wrongContainer.innerHTML = wHtml;
           }
         }
+      }
+
+      // ==============================================================
+      // 【新增】點擊按鈕匯出多工作表 Excel 的核心函式
+      // ==============================================================
+      function exportWrongStats() {
+        // 1. 安全檢查，防呆
+        if (!allData[currentSubject] || !allData[currentSubject].wrongStats) {
+          alert("目前尚未讀取到易錯題資料，請稍候再試。");
+          return;
+        }
+
+        const wrongStats = allData[currentSubject].wrongStats;
+        const wb = XLSX.utils.book_new(); // 建立一個新的 Excel 活頁簿
+        let hasData = false;
+
+        // 2. 把所有週次抓出來並從小到大排序 (例如：1, 2, 3...)
+        const weeks = Object.keys(wrongStats).sort((a, b) => parseInt(a) - parseInt(b));
+
+        // 3. 循序跑每一週，各建立一個工作表
+        weeks.forEach(week => {
+          const stats = wrongStats[week];
+          if (stats && stats.length > 0) {
+            hasData = true;
+
+            // 4. 設定與後台完全相同的欄位名稱: [題目內容, 答錯次數]
+            const sheetData = [["題目內容", "答錯次數"]];
+            
+            // 填入每題的數據
+            stats.forEach(item => {
+              sheetData.push([item.qText, item.count]);
+            });
+
+            // 5. 轉換為工作表陣列
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+            // 6. 優化 Excel 欄寬，讓題目不會被擠扁 (A欄寬度設65，B欄寬度設15)
+            ws['!cols'] = [{ wch: 65 }, { wch: 15 }];
+
+            // 7. 將此工作表塞入活頁簿，分頁名稱定為 "第 X 週"
+            XLSX.utils.book_append_sheet(wb, ws, `第 ${week} 週`);
+          }
+        });
+
+        // 8. 如果查無任何錯題，彈出提示
+        if (!hasData) {
+          alert(`目前【${currentSubject}】底下所有週次都沒有錯題紀錄，無須匯出。`);
+          return;
+        }
+
+        // 9. 自動下載 Excel 檔案，檔名格式：[科目名稱]_易錯題統計.xlsx (例如: 文編_易錯題統計.xlsx)
+        const fileName = `${currentSubject}_易錯題統計.xlsx`;
+        XLSX.writeFile(wb, fileName);
       }
     </script>
   </body>
