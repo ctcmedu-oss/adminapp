@@ -23,8 +23,9 @@
       .tab-group button.active { background-color: #e67e22; color: white; }
       select { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
 
-      .btn-export { background-color: #c0392b; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px;}
-      .btn-export:hover { background-color: #a93226; }
+      /* 🛠️【修改】將匯出按鈕的刺眼紅色改為舒適、具氣質的莫蘭迪藕粉色 */
+      .btn-export { background-color: #C59393; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px; border-radius: 5px; font-weight: bold;}
+      .btn-export:hover { background-color: #B28080; }
 
       table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 15px; }
       th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
@@ -40,8 +41,6 @@
       
       /* 錯題區塊的專屬樣式 */
       .wrong-q-section { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #bdc3c7; }
-      
-      /* 🛠️【修改】將原本刺眼的大紅色改為柔和溫暖的莫蘭迪粉色 */
       .wrong-table th { background-color: #D4A5A5; color: white; }
       .wrong-table td { line-height: 1.5; }
     </style>
@@ -224,17 +223,14 @@
           } else {
             let wHtml = "<h3 style='color:#4A5568; margin-top:20px; margin-bottom:15px;'>🚨 第 " + sortMode + " 週 - 易錯題排行榜 <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>(依錯題次數排序)</span></h3>";
             
-            // 🛠️【修改】標題欄「題目內容」改為「題目」
             wHtml += "<table class='wrong-table'><tr><th style='width:15%;'>題目編號</th><th style='width:70%;'>題目</th><th style='width:15%;'>答錯次數</th></tr>";
             
             stats.forEach(st => {
               let qId = st.qId || "-";
               
-              // 🛠️【修改】判斷答錯次數：5次及以上為紅色 (#e74c3c)，5次以下為藍色 (#2b6cb0)
               let countNum = parseInt(st.count) || 0;
               let countColor = (countNum >= 5) ? "#e74c3c" : "#2b6cb0";
 
-              // 🛠️【修改】題目欄位加入 style='text-align:left; padding-left:15px;' 達成靠左對齊
               wHtml += `<tr><td style='text-align:center; font-weight:bold; color:#7f8c8d;'>${qId}</td><td style='text-align:left; padding-left:15px;'>${st.qText}</td><td style='text-align:center; color:${countColor}; font-weight:bold;'>${st.count} 次</td></tr>`;
             });
             wHtml += "</table>";
