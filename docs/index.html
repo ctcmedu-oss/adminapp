@@ -14,7 +14,7 @@
       h2 { text-align: center; color: #2980b9; border-bottom: 2px solid #3498db; padding-bottom: 10px;}
       
       #auth-section { text-align: center; margin-top: 50px; }
-      input[type="password"] { width: 80%; max-width: 300px; padding: 12px; font-size: 16px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 5px; }
+      input[type="password"] { width: 80%; max-width: 300px; padding: 12px; font-size: 16px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 5px; box-sizing: border-box; }
       button { background-color: #2980b9; color: white; border: none; padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 5px; font-weight: bold; }
       button:hover { background-color: #34495e; }
 
@@ -23,11 +23,16 @@
       .tab-group button.active { background-color: #e67e22; color: white; }
       select { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
 
+      /* 🔍 新增篩選群組樣式 */
+      .filter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+
       /* 🛠️【修改】將按鈕改為高質感的莫蘭迪煙鼠尾草綠 */
-      .btn-export { background-color: #b5c4b1; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer;}
+      .btn-export { background-color: #79b8c5; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer;}
       .btn-export:hover { background-color: #9fae9b; }
 
-      table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 15px; }
+      /* 表格容器：防止撐開畫面 */
+      .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px; }
+      table { width: 100%; border-collapse: collapse; font-size: 15px; }
       th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
       th { background-color: #34495e; color: white; position: sticky; top: 0;}
       tr:nth-child(even) { background-color: #f2f2f2; }
@@ -43,8 +48,31 @@
       .wrong-q-section { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #bdc3c7; }
       
       /* 🛠️【修改】同步調整錯題表格標頭，使其與按鈕的鼠尾草綠完美呼應 */
-      .wrong-table th { background-color: #b5c4b1; color: white; }
+      .wrong-table th { background-color: #79b8c5; color: white; }
       .wrong-table td { line-height: 1.5; }
+
+      /* 📱【新增】手機版 RWD 響應式調整 */
+      @media (max-width: 600px) {
+        body { padding: 10px; }
+        .container { padding: 15px; }
+        
+        /* 讓上方控制列在手機版變成上下排列 */
+        .controls { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px; }
+        
+        /* 讓切換檢定按鈕平分寬度 */
+        .tab-group { display: flex; width: 100%; }
+        .tab-group button { flex: 1; text-align: center; margin-right: 5px; padding: 10px 5px; font-size: 14px; }
+        .tab-group button:last-child { margin-right: 0; }
+        
+        /* 篩選與匯出按鈕在手機版垂直排列 */
+        .filter-group { flex-direction: column; align-items: stretch; width: 100%; gap: 8px; }
+        .filter-group label { margin-right: 0 !important; font-size: 14px; }
+        
+        select, .btn-export { width: 100%; margin-left: 0 !important; box-sizing: border-box; }
+        
+        /* 強制表格在手機版可以水平滾動，文字才不會擠壓變形 */
+        table { min-width: 600px; }
+      }
     </style>
   </head>
   <body>
@@ -66,7 +94,8 @@
           <button id="btn-edit" class="active" onclick="switchSubject('文編')">文編檢定</button>
           <button id="btn-photo" onclick="switchSubject('攝影')">攝影檢定</button>
         </div>
-        <div>
+        <!-- 💡 這裡加上了 class="filter-group" 方便手機版 RWD 控制 -->
+        <div class="filter-group">
           <label style="font-weight:bold; margin-right:10px;">排序條件：</label>
           <select id="sort-select" onchange="renderTable()">
             <option value="total">🏆 總積分最高排行</option>
@@ -75,11 +104,12 @@
         </div>
       </div>
 
-      <div id="table-container">
+      <!-- 💡 這裡加上了 class="table-wrapper" 防止寬表格撐破手機網頁 -->
+      <div id="table-container" class="table-wrapper">
         <div class="loading">資料同步讀取中，請稍候...</div>
       </div>
       
-      <div id="wrong-stats-container" class="wrong-q-section"></div>
+      <div id="wrong-stats-container" class="wrong-q-section table-wrapper"></div>
     </div>
 
     <script>
