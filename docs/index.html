@@ -86,6 +86,13 @@
       let allData = {};
       let currentSubject = '文編';
 
+      // 【新增】網頁載入時自動檢查 Session 狀態
+      window.onload = function() {
+        if (sessionStorage.getItem('isLoggedIn') === 'true') {
+          showDashboard();
+        }
+      };
+
       // 核心 API 呼叫工具
       async function callApi(action, data = {}) {
         try {
@@ -104,12 +111,18 @@
 
       function checkPwd() {
         if(document.getElementById('adminPwd').value === ADMIN_PASSWORD) {
-          document.getElementById('auth-section').style.display = 'none';
-          document.getElementById('dashboard-section').style.display = 'block';
-          loadData();
+          sessionStorage.setItem('isLoggedIn', 'true'); // 【新增】登入成功，記錄狀態到 Session 中
+          showDashboard();
         } else {
           document.getElementById('pwd-msg').innerText = "密碼錯誤，請重新輸入";
         }
+      }
+
+      // 【新增】抽離顯示後台與讀取最新資料的步驟
+      function showDashboard() {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('dashboard-section').style.display = 'block';
+        loadData(); // 每次進入或重新整理，都會即時呼叫最新刷題狀況
       }
 
       async function loadData() {
@@ -174,7 +187,8 @@
 
         let html = "<table>";
         if(sortMode === 'total') {
-          html += "<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🏆 累積總積分</th></tr>";
+          // 【修改】在總積分排行標頭，多補一欄「刷題總次數」
+          html += "<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>📝 刷題總次數</th><th>🏆 累積總積分</th></tr>";
         } else {
           html += `<tr><th>排名</th><th>姓名</th><th>法名</th><th>義工編號</th><th>🎯 第 ${sortMode} 週積分</th><th>該週最高次數</th><th>累積總積分</th></tr>`;
         }
@@ -190,7 +204,13 @@
 
           if(sortMode === 'total') {
             let scoreColor = user.totalScore > 0 ? "#e67e22" : "#95a5a6";
-            html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='color:${scoreColor}; font-weight:bold;'>${user.totalScore} 分</td></tr>`;
+            
+            // 【修改】計算或取得該名義工的刷題總次數
+            let totalRounds = user.totalCount || Object.values(user.weeks).reduce((sum, w) => sum + (w.maxRound || 0), 0);
+            let roundsText = totalRounds > 0 ? `${totalRounds} 次` : "-";
+
+            // 【修改】表格內容帶入刷題總次數欄位
+            html += `<tr><td>${rankIcon}</td><td>${user.name}</td><td>${dName}</td><td>${user.id}</td><td style='font-weight:bold; color:#34495e;'>${roundsText}</td><td style='color:${scoreColor}; font-weight:bold;'>${user.totalScore} 分</td></tr>`;
           } else {
             let wData = user.weeks[sortMode] || {score: 0, maxRound: 0};
             let roundText = wData.maxRound > 0 ? `${wData.maxRound} 次` : "-";
