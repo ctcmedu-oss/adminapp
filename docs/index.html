@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>法師專用查詢後台</title>
     
+    <!-- 引入 SheetJS 套件，專門用來處理 Excel 多工作表匯出 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -23,7 +24,6 @@
       .tab-group button.active { background-color: #e67e22; color: white; }
       select { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
 
-      /* 【新增】匯出按鈕專屬樣式 */
       .btn-export { background-color: #c0392b; color: white; margin-left: 10px; padding: 10px 15px; font-size: 15px;}
       .btn-export:hover { background-color: #a93226; }
 
@@ -42,11 +42,12 @@
       /* 錯題區塊的專屬樣式 */
       .wrong-q-section { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #bdc3c7; }
       .wrong-table th { background-color: #c0392b; }
-      .wrong-table td { text-align: left; line-height: 1.5; }
+      .wrong-table td { line-height: 1.5; }
     </style>
   </head>
   <body>
 
+    <!-- 密碼鎖區塊 -->
     <div id="auth-section" class="container">
       <h2>法師專用查詢後台</h2>
       <p>請輸入查閱密碼以驗證身分</p>
@@ -56,6 +57,7 @@
       <p id="pwd-msg" style="color:red; margin-top:10px;"></p>
     </div>
 
+    <!-- 數據儀表板區塊 -->
     <div id="dashboard-section" class="container">
       <h2>義工刷題狀況總覽</h2>
       
@@ -69,22 +71,20 @@
           <select id="sort-select" onchange="renderTable()">
             <option value="total">🏆 總積分最高排行</option>
           </select>
-          
           <button class="btn-export" onclick="exportWrongStats()">🚨 匯出易錯題</button>
         </div>
       </div>
 
+      <!-- 積分排名表格 -->
       <div id="table-container">
         <div class="loading">資料同步讀取中，請稍候...</div>
       </div>
       
+      <!-- 錯題統計區塊 -->
       <div id="wrong-stats-container" class="wrong-q-section"></div>
     </div>
 
     <script>
-      // ==============================================================
-      // ⚠️ 請將下方引號內的網址，換成您的 Apps Script 正式發布網址
-      // ==============================================================
       const API_URL = "https://script.google.com/macros/s/AKfycbzR0nxw4mkxT1JkA4w2nQBsRJ0qIVISkz_pu7_hws0ULiksWvyiB_ivIls2dIRQmQm5/exec"; 
 
       const ADMIN_PASSWORD = "888"; 
@@ -217,6 +217,7 @@
         html += "</table>";
         container.innerHTML = html;
 
+        // --- 處理錯題顯示區塊 (網頁畫面上同步新增「題目編號」欄位) ---
         if (sortMode === 'total') {
           wrongContainer.innerHTML = "<div style='text-align:center; padding:20px; color:#7f8c8d; font-size:16px;'>💡 請在上方選單選擇「特定週次」，即可查看該週的錯題統計。</div>";
         } else {
@@ -225,9 +226,14 @@
             wrongContainer.innerHTML = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:10px;'>📊 第 " + sortMode + " 週 - 錯題統計</h3><p style='text-align:center; color:#27ae60; padding:15px; font-weight:bold; font-size:16px;'>太棒了！本週沒有任何錯題紀錄。</p>";
           } else {
             let wHtml = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:15px;'>🚨 第 " + sortMode + " 週 - 易錯題排行榜 <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>(依錯題次數排序)</span></h3>";
-            wHtml += "<table class='wrong-table'><tr><th style='width:80%;'>題目內容</th><th style='width:20%;'>答錯次數</th></tr>";
+            
+            // 🌟【修改】在網頁畫面表頭補上「題目編號」
+            wHtml += "<table class='wrong-table'><tr><th style='width:15%;'>題目編號</th><th style='width:70%;'>題目內容</th><th style='width:15%;'>答錯次數</th></tr>";
+            
             stats.forEach(st => {
-              wHtml += `<tr><td>${st.qText}</td><td style='text-align:center; color:#e74c3c; font-weight:bold;'>${st.count} 次</td></tr>`;
+              // 🌟【修改】直接讀取後端新傳過來的 st.qId 
+              let qId = st.qId || "-";
+              wHtml += `<tr><td style='text-align:center; font-weight:bold; color:#7f8c8d;'>${qId}</td><td>${st.qText}</td><td style='text-align:center; color:#e74c3c; font-weight:bold;'>${st.count} 次</td></tr>`;
             });
             wHtml += "</table>";
             wrongContainer.innerHTML = wHtml;
@@ -236,54 +242,43 @@
       }
 
       // ==============================================================
-      // 【新增】點擊按鈕匯出多工作表 Excel 的核心函式
+      // 點擊按鈕匯出多工作表 Excel 核心函式
       // ==============================================================
       function exportWrongStats() {
-        // 1. 安全檢查，防呆
         if (!allData[currentSubject] || !allData[currentSubject].wrongStats) {
           alert("目前尚未讀取到易錯題資料，請稍候再試。");
           return;
         }
 
         const wrongStats = allData[currentSubject].wrongStats;
-        const wb = XLSX.utils.book_new(); // 建立一個新的 Excel 活頁簿
+        const wb = XLSX.utils.book_new(); 
         let hasData = false;
 
-        // 2. 把所有週次抓出來並從小到大排序 (例如：1, 2, 3...)
         const weeks = Object.keys(wrongStats).sort((a, b) => parseInt(a) - parseInt(b));
 
-        // 3. 循序跑每一週，各建立一個工作表
         weeks.forEach(week => {
           const stats = wrongStats[week];
           if (stats && stats.length > 0) {
             hasData = true;
 
-            // 4. 設定與後台完全相同的欄位名稱: [題目內容, 答錯次數]
-            const sheetData = [["題目內容", "答錯次數"]];
+            const sheetData = [["題目編號", "題目內容", "答錯次數"]];
             
-            // 填入每題的數據
             stats.forEach(item => {
-              sheetData.push([item.qText, item.count]);
+              let qId = item.qId || "-";
+              sheetData.push([qId, item.count ? item.qText : item.qText, item.count]);
             });
 
-            // 5. 轉換為工作表陣列
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-            // 6. 優化 Excel 欄寬，讓題目不會被擠扁 (A欄寬度設65，B欄寬度設15)
-            ws['!cols'] = [{ wch: 65 }, { wch: 15 }];
-
-            // 7. 將此工作表塞入活頁簿，分頁名稱定為 "第 X 週"
+            ws['!cols'] = [{ wch: 15 }, { wch: 65 }, { wch: 15 }];
             XLSX.utils.book_append_sheet(wb, ws, `第 ${week} 週`);
           }
         });
 
-        // 8. 如果查無任何錯題，彈出提示
         if (!hasData) {
           alert(`目前【${currentSubject}】底下所有週次都沒有錯題紀錄，無須匯出。`);
           return;
         }
 
-        // 9. 自動下載 Excel 檔案，檔名格式：[科目名稱]_易錯題統計.xlsx (例如: 文編_易錯題統計.xlsx)
         const fileName = `${currentSubject}_易錯題統計.xlsx`;
         XLSX.writeFile(wb, fileName);
       }
