@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>法師專用查詢後台</title>
     
-    <!-- 引入 SheetJS 套件，專門用來處理 Excel 多工作表匯出 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -41,13 +40,14 @@
       
       /* 錯題區塊的專屬樣式 */
       .wrong-q-section { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #bdc3c7; }
-      .wrong-table th { background-color: #c0392b; }
+      
+      /* 🛠️【修改】將原本刺眼的大紅色改為柔和溫暖的莫蘭迪粉色 */
+      .wrong-table th { background-color: #D4A5A5; color: white; }
       .wrong-table td { line-height: 1.5; }
     </style>
   </head>
   <body>
 
-    <!-- 密碼鎖區塊 -->
     <div id="auth-section" class="container">
       <h2>法師專用查詢後台</h2>
       <p>請輸入查閱密碼以驗證身分</p>
@@ -57,7 +57,6 @@
       <p id="pwd-msg" style="color:red; margin-top:10px;"></p>
     </div>
 
-    <!-- 數據儀表板區塊 -->
     <div id="dashboard-section" class="container">
       <h2>義工刷題狀況總覽</h2>
       
@@ -75,12 +74,10 @@
         </div>
       </div>
 
-      <!-- 積分排名表格 -->
       <div id="table-container">
         <div class="loading">資料同步讀取中，請稍候...</div>
       </div>
       
-      <!-- 錯題統計區塊 -->
       <div id="wrong-stats-container" class="wrong-q-section"></div>
     </div>
 
@@ -217,7 +214,7 @@
         html += "</table>";
         container.innerHTML = html;
 
-        // --- 處理錯題顯示區塊 (網頁畫面上同步新增「題目編號」欄位) ---
+        // --- 處理錯題顯示區塊 ---
         if (sortMode === 'total') {
           wrongContainer.innerHTML = "<div style='text-align:center; padding:20px; color:#7f8c8d; font-size:16px;'>💡 請在上方選單選擇「特定週次」，即可查看該週的錯題統計。</div>";
         } else {
@@ -225,15 +222,20 @@
           if (!stats || stats.length === 0) {
             wrongContainer.innerHTML = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:10px;'>📊 第 " + sortMode + " 週 - 錯題統計</h3><p style='text-align:center; color:#27ae60; padding:15px; font-weight:bold; font-size:16px;'>太棒了！本週沒有任何錯題紀錄。</p>";
           } else {
-            let wHtml = "<h3 style='color:#c0392b; margin-top:20px; margin-bottom:15px;'>🚨 第 " + sortMode + " 週 - 易錯題排行榜 <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>(依錯題次數排序)</span></h3>";
+            let wHtml = "<h3 style='color:#4A5568; margin-top:20px; margin-bottom:15px;'>🚨 第 " + sortMode + " 週 - 易錯題排行榜 <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>(依錯題次數排序)</span></h3>";
             
-            // 🌟【修改】在網頁畫面表頭補上「題目編號」
-            wHtml += "<table class='wrong-table'><tr><th style='width:15%;'>題目編號</th><th style='width:70%;'>題目內容</th><th style='width:15%;'>答錯次數</th></tr>";
+            // 🛠️【修改】標題欄「題目內容」改為「題目」
+            wHtml += "<table class='wrong-table'><tr><th style='width:15%;'>題目編號</th><th style='width:70%;'>題目</th><th style='width:15%;'>答錯次數</th></tr>";
             
             stats.forEach(st => {
-              // 🌟【修改】直接讀取後端新傳過來的 st.qId 
               let qId = st.qId || "-";
-              wHtml += `<tr><td style='text-align:center; font-weight:bold; color:#7f8c8d;'>${qId}</td><td>${st.qText}</td><td style='text-align:center; color:#e74c3c; font-weight:bold;'>${st.count} 次</td></tr>`;
+              
+              // 🛠️【修改】判斷答錯次數：5次及以上為紅色 (#e74c3c)，5次以下為藍色 (#2b6cb0)
+              let countNum = parseInt(st.count) || 0;
+              let countColor = (countNum >= 5) ? "#e74c3c" : "#2b6cb0";
+
+              // 🛠️【修改】題目欄位加入 style='text-align:left; padding-left:15px;' 達成靠左對齊
+              wHtml += `<tr><td style='text-align:center; font-weight:bold; color:#7f8c8d;'>${qId}</td><td style='text-align:left; padding-left:15px;'>${st.qText}</td><td style='text-align:center; color:${countColor}; font-weight:bold;'>${st.count} 次</td></tr>`;
             });
             wHtml += "</table>";
             wrongContainer.innerHTML = wHtml;
@@ -261,11 +263,11 @@
           if (stats && stats.length > 0) {
             hasData = true;
 
-            const sheetData = [["題目編號", "題目內容", "答錯次數"]];
+            const sheetData = [["題目編號", "題目", "答錯次數"]];
             
             stats.forEach(item => {
               let qId = item.qId || "-";
-              sheetData.push([qId, item.count ? item.qText : item.qText, item.count]);
+              sheetData.push([qId, item.qText, item.count]);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
